@@ -15,6 +15,7 @@
 package com.google.api.ads.adwords.lib.utils;
 
 import com.google.api.ads.adwords.lib.client.AdWordsSession;
+import com.google.api.ads.adwords.lib.client.reporting.ReportingConfiguration;
 import com.google.api.ads.common.lib.auth.AuthorizationHeaderProvider;
 import com.google.api.ads.common.lib.exception.AuthenticationException;
 import com.google.api.ads.common.lib.useragent.UserAgentCombiner;
@@ -38,11 +39,6 @@ public class ReportRequestFactoryHelper {
   /** The URI of the download server. */
   public static final String DOWNLOAD_SERVER_URI = "/api/adwords/reportdownload";
   
-  /**
-   * The final version of the AdWords API that supports the returnMoneyInMicros header.
-   */
-  private static final String FINAL_RETURN_MONEY_IN_MICROS_VERSION = "v201402";
-
   private final AdWordsSession session;
   private final UserAgentCombiner userAgentCombiner;
   private final AuthorizationHeaderProvider authorizationHeaderProvider;
@@ -135,13 +131,17 @@ public class ReportRequestFactoryHelper {
     httpHeaders.setUserAgent(userAgentCombiner.getUserAgent(session.getUserAgent()));
     httpHeaders.set("developerToken", session.getDeveloperToken());
     httpHeaders.set("clientCustomerId", session.getClientCustomerId());
-    if (session.isReportMoneyInMicros() != null) {
-      if (version != null && FINAL_RETURN_MONEY_IN_MICROS_VERSION.compareTo(version) < 0) {
-        throw new IllegalArgumentException(String.format(
-            "returnMoneyInMicros is not supported in version %s. See %s for details.", version,
-            "https://developers.google.com/adwords/api/docs/guides/reporting-concepts#money"));
+    ReportingConfiguration reportingConfiguration = session.getReportingConfiguration();
+    if (reportingConfiguration != null) {
+      reportingConfiguration.validate(version);
+      if (reportingConfiguration.isSkipReportHeader() != null) {
+        httpHeaders.set("skipReportHeader",
+            Boolean.toString(reportingConfiguration.isSkipReportHeader()));
       }
-      httpHeaders.set("returnMoneyInMicros", Boolean.toString(session.isReportMoneyInMicros()));
+      if (reportingConfiguration.isSkipReportSummary() != null) {
+        httpHeaders.set("skipReportSummary",
+            Boolean.toString(reportingConfiguration.isSkipReportSummary()));
+      }
     }
     return httpHeaders;
   }

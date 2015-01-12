@@ -13,7 +13,8 @@ This project hosts the Java client library for the various SOAP-Based Ads APIs (
 
 ## Requirements
 
-  * Java 1.5+
+  * Java 1.5+, but note that this requirement will change to Java 1.6+
+  [in April 2015](http://googleadsdeveloper.blogspot.com/2014/11/minimum-java-version-requirement.html)
   * Maven 3.0+ not required, but recommended
 
 ## Announcements and updates
@@ -167,7 +168,7 @@ $ mvn -X compile
 
 This command runs the ``GetCampaigns`` example, but you can update the ``-Dexec.mainClass`` argument with the example of your choice.
 ```
-$ mvn -X exec:java -Dexec.mainClass="adwords.axis.v201406.basicoperations.GetCampaigns"
+$ mvn -X exec:java -Dexec.mainClass="adwords.axis.v201409.basicoperations.GetCampaigns"
 ```
 
 ## Basic usage
@@ -177,7 +178,7 @@ to all products and frameworks.
 
 ```java
 // Contains the data classes and service classes.
-import com.google.api.ads.adwords.axis.v201406.*;
+import com.google.api.ads.adwords.axis.v201409.*;
 
 import com.google.api.ads.adwords.lib.client.AdWordsSession;
 import com.google.api.ads.adwords.lib.axis.factory.AdWordsServices;
@@ -298,6 +299,25 @@ To bridge SLF4J for a logging framework, you must do the following:
   2) If your logging framework requires a configuration file, you must place it
      in the resources directory. This distribution includes an example
      configuration for log4j named "log4j.properties".
+
+## How do I enable compression?
+
+First, add an entry to your `ads.properties` file for each API you plan to use.
+
+    # AdWords
+    api.adwords.useCompression=true
+    # DFP
+    api.dfp.useCompression=true
+    # DFA
+    api.dfa.useCompression=true
+
+If using JaxWs, then no further steps are required.
+
+If using Axis, then no further steps are required unless you are setting the
+`axis.ClientConfigFile` system property. If you are setting
+`axis.ClientConfigFile` to your own custom WSDD file and you want to use
+compression, please ensure that the `http` transport defined in your WSDD
+supports compression.
 
 ## Using a proxy
 

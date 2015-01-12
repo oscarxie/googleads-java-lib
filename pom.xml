@@ -22,7 +22,7 @@
 
   <groupId>com.google.api-ads</groupId>
   <artifactId>client-libs-parent</artifactId>
-  <version>1.32.1-SNAPSHOT</version>
+  <version>1.36.1-SNAPSHOT</version>
 
   <packaging>pom</packaging>
   <name>Google Ads APIs Java Client Libraries Parent</name>
@@ -225,7 +225,7 @@
             <configuration>
               <serverId>sonatype-nexus-staging</serverId>
               <nexusUrl>https://oss.sonatype.org/</nexusUrl>
-              <autoReleaseAfterClose>false</autoReleaseAfterClose>
+              <autoReleaseAfterClose>true</autoReleaseAfterClose>
             </configuration>
           </plugin>
         </plugins>

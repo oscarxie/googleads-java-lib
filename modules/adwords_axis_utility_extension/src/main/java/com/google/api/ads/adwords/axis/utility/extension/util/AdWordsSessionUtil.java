@@ -16,6 +16,7 @@ package com.google.api.ads.adwords.axis.utility.extension.util;
 
 import com.google.api.ads.adwords.lib.client.AdWordsSession;
 import com.google.api.ads.adwords.lib.client.AdWordsSession.Builder;
+import com.google.api.ads.adwords.lib.client.reporting.ReportingConfiguration;
 import com.google.api.ads.common.lib.auth.OfflineCredentials;
 import com.google.api.ads.common.lib.auth.OfflineCredentials.Api;
 import com.google.api.ads.common.lib.conf.ConfigurationLoadException;
@@ -39,7 +40,7 @@ public class AdWordsSessionUtil {
 
   /**
    * Creates a copy of the AdWordsSession.
-   * 
+   *
    * @param adWordsSession to copy from
    * @return a new copy of the AdWordsSession
    */
@@ -49,7 +50,7 @@ public class AdWordsSessionUtil {
 
   /**
    * Copies the AdWordsSession and Adds USER_AGENT to the userAgent.
-   * 
+   *
    * @param adWordsSession to copy from
    * @return a new copy of the AdWordsSession with the new userAgent
    */
@@ -67,7 +68,7 @@ public class AdWordsSessionUtil {
 
   /**
    * Copies (if needed) the AdWordsSession and Adds USER_AGENT to the userAgent.
-   * 
+   *
    * @param adWordsSession to copy from
    * @return a new copy of the AdWordsSession with the new userAgent only if needed
    */
@@ -85,12 +86,11 @@ public class AdWordsSessionUtil {
 
   /**
    * Creates a copy of the AdWordsSession and changes the userAgent.
-   * 
+   *
    * @param adWordsSession to copy from
    * @param userAgent the new User Agent for the session
    * @return a new copy of the AdWordsSession
    */
-  @SuppressWarnings("deprecation")
   public static AdWordsSession copy(AdWordsSession adWordsSession, String userAgent) {
     AdWordsSession.Builder builder = new Builder();
     if (adWordsSession.getEndpoint() != null) {
@@ -110,13 +110,19 @@ public class AdWordsSessionUtil {
     if (adWordsSession.getOAuth2Credential() != null) {
       builder = builder.withOAuth2Credential(adWordsSession.getOAuth2Credential());
     }
+    if (adWordsSession.getReportingConfiguration() != null) {
+      ReportingConfiguration reportingConfig = new ReportingConfiguration.Builder()
+          .skipReportHeader(adWordsSession.getReportingConfiguration().isSkipReportHeader())
+          .skipReportSummary(adWordsSession.getReportingConfiguration().isSkipReportSummary())
+          .build();
+      builder = builder.withReportingConfiguration(reportingConfig);
+    }
 
     try {
       AdWordsSession newAdWordsSession;
       newAdWordsSession = builder.build();
       newAdWordsSession.setPartialFailure(adWordsSession.isPartialFailure());
       newAdWordsSession.setValidateOnly(adWordsSession.isValidateOnly());
-      newAdWordsSession.setReportMoneyInMicros(adWordsSession.isReportMoneyInMicros());
       return newAdWordsSession;
     } catch (ValidationException e) {
       log.warn("Error @addUtilityUserAgent, returning unchanged AdWordsSession");

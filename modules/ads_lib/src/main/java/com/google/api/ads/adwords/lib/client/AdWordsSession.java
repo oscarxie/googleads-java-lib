@@ -14,19 +14,17 @@
 
 package com.google.api.ads.adwords.lib.client;
 
-import com.google.api.ads.adwords.lib.utils.AdWordsInternals;
+import com.google.api.ads.adwords.lib.client.reporting.ReportingConfiguration;
 import com.google.api.ads.common.lib.auth.OAuth2Compatible;
 import com.google.api.ads.common.lib.client.AdsSession;
 import com.google.api.ads.common.lib.conf.ConfigurationHelper;
 import com.google.api.ads.common.lib.conf.ConfigurationLoadException;
 import com.google.api.ads.common.lib.exception.ValidationException;
 import com.google.api.client.auth.oauth2.Credential;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 
 import org.apache.commons.configuration.Configuration;
-import org.slf4j.Logger;
 
 import java.io.File;
 import java.net.MalformedURLException;
@@ -47,15 +45,15 @@ public class AdWordsSession implements AdsSession, OAuth2Compatible {
 
   private String clientCustomerId;
   private Long expressBusinessId;
+  private String expressPlusPageId;
   private Boolean isValidateOnly;
-  private Boolean isReportMoneyInMicros;
   private Boolean isPartialFailure;
   private Credential oAuth2Credential;
+  private ReportingConfiguration reportingConfiguration;
 
   private final String userAgent;
   private final String developerToken;
   private final String endpoint;
-  private final Logger libLogger;
 
   public static final String DEFAULT_ENDPOINT = "https://adwords.google.com/";
   
@@ -71,11 +69,10 @@ public class AdWordsSession implements AdsSession, OAuth2Compatible {
     this.developerToken = builder.developerToken;
     this.endpoint = builder.endpoint;
     this.isPartialFailure = builder.isPartialFailure;
-    this.isReportMoneyInMicros = builder.isReportMoneyInMicros;
     this.isValidateOnly = builder.isValidateOnly;
     this.oAuth2Credential = builder.oAuth2Credential;
     this.userAgent = builder.userAgent;
-    this.libLogger = builder.libLogger;
+    this.reportingConfiguration = builder.reportingConfiguration;
   }
 
   /**
@@ -93,8 +90,7 @@ public class AdWordsSession implements AdsSession, OAuth2Compatible {
   }
 
   /**
-   * Gets the AdWords Express business ID required for AdWords Express
-   * PromotionService
+   * Gets the AdWords Express business ID used by AdWords Express PromotionService.
    */
   @Nullable
   public Long getExpressBusinessId() {
@@ -102,11 +98,33 @@ public class AdWordsSession implements AdsSession, OAuth2Compatible {
   }
 
   /**
-   * Sets the AdWords Express business ID required for AdWords Express
-   * PromotionService
+   * Sets the AdWords Express business ID used by AdWords Express PromotionService.
+   * 
+   * <p>When using PromotionService, either set this value or the express plus page ID,
+   * but not both.
    */
   public void setExpressBusinessId(@Nullable Long businessId) {
     this.expressBusinessId = businessId;
+  }
+
+  /**
+   * Gets the Google+ page ID for the Google My Business location used by AdWords Express
+   * PromotionService.
+   */
+  @Nullable
+  public String getExpressPlusPageId() {
+    return expressPlusPageId;
+  }
+
+  /**
+   * Sets the Google+ page ID for the Google My Business location used by AdWords Express
+   * PromotionService.
+   * 
+   * <p>When using PromotionService, either set this value or the express business ID,
+   * but not both.
+   */
+  public void setExpressPlusPageId(String expressPlusPageId) {
+    this.expressPlusPageId = expressPlusPageId;
   }
   
   /**
@@ -171,6 +189,21 @@ public class AdWordsSession implements AdsSession, OAuth2Compatible {
   }
 
   /**
+   * Gets the reporting configuration.
+   */
+  @Nullable
+  public ReportingConfiguration getReportingConfiguration() {
+    return reportingConfiguration;
+  }
+
+  /**
+   * Sets the reporting configuration.
+   */
+  public void setReportingConfiguration(@Nullable ReportingConfiguration reportingConfiguration) {
+    this.reportingConfiguration = reportingConfiguration;
+  }
+
+  /**
    * Clears all the authentication credentials from this session.
    */
   private void clearAuthentication() {
@@ -182,21 +215,6 @@ public class AdWordsSession implements AdsSession, OAuth2Compatible {
    */
   public String getEndpoint() {
     return endpoint;
-  }
-
-  /**
-   * @param reportMoneyInMicros the reportMoneyInMicros to set
-   */
-  public void setReportMoneyInMicros(@Nullable Boolean reportMoneyInMicros) {
-    this.isReportMoneyInMicros = reportMoneyInMicros;
-  }
-
-  /**
-   * @return the reportMoneyInMicros
-   */
-  @Nullable
-  public Boolean isReportMoneyInMicros() {
-    return isReportMoneyInMicros;
   }
 
   /**
@@ -215,27 +233,16 @@ public class AdWordsSession implements AdsSession, OAuth2Compatible {
     private String clientCustomerId;
     private Boolean isPartialFailure;
     private Boolean isValidateOnly;
-    private Boolean isReportMoneyInMicros;
     private Credential oAuth2Credential;
+    private ReportingConfiguration reportingConfiguration;
 
-    private final Logger libLogger;
     private final ConfigurationHelper configHelper;
 
     /**
      * Constructor.
      */
     public Builder() {
-      this(AdWordsInternals.getInstance().getAdsServiceLoggers().getLibLogger());
-    }
-
-    @VisibleForTesting
-    Builder(Logger libLogger) {
-       this(libLogger, new ConfigurationHelper());
-    }
-
-    private Builder(Logger libLogger, ConfigurationHelper configHelper) {
-      this.libLogger = libLogger;
-      this.configHelper = configHelper;
+      this.configHelper = new ConfigurationHelper();
     }
 
     public Builder fromFile() throws ConfigurationLoadException {
@@ -263,7 +270,8 @@ public class AdWordsSession implements AdsSession, OAuth2Compatible {
      * <li>api.adwords.developerToken</li>
      * <li>api.adwords.isPartialFailure</li>
      * <li>api.adwords.endpoint</li>
-     * <li>api.adwords.reportMoneyInMicros</li>
+     * <li>api.adwords.reporting.skipHeader</li>
+     * <li>api.adwords.reporting.skipSummary</li>
      * </ul>
      *
      * @param config
@@ -275,8 +283,17 @@ public class AdWordsSession implements AdsSession, OAuth2Compatible {
       this.developerToken = config.getString("api.adwords.developerToken", null);
       this.isPartialFailure = config.getBoolean("api.adwords.isPartialFailure", null);
       this.endpoint = config.getString("api.adwords.endpoint", null);
-      this.isReportMoneyInMicros = config.getBoolean("api.adwords.reportMoneyInMicros",
-          null);
+      
+      // Only create a ReportConfiguration for this object if at least one reporting
+      // configuration config value is present.
+      Boolean isSkipReportHeader = config.getBoolean("api.adwords.reporting.skipHeader", null);
+      Boolean isSkipReportSummary = config.getBoolean("api.adwords.reporting.skipSummary", null);
+      if (isSkipReportHeader != null || isSkipReportSummary != null) {
+        this.reportingConfiguration = new ReportingConfiguration.Builder()
+            .skipReportHeader(isSkipReportHeader)
+            .skipReportSummary(isSkipReportSummary)
+            .build();
+      }
 
       return this;
     }
@@ -287,6 +304,11 @@ public class AdWordsSession implements AdsSession, OAuth2Compatible {
     public Builder withOAuth2Credential(Credential oAuth2Credential) {
       clearAuthentication();
       this.oAuth2Credential = oAuth2Credential;
+      return this;
+    }
+    
+    public Builder withReportingConfiguration(ReportingConfiguration reportingConfiguration) {
+      this.reportingConfiguration = reportingConfiguration;
       return this;
     }
 
@@ -328,22 +350,6 @@ public class AdWordsSession implements AdsSession, OAuth2Compatible {
      */
     public Builder enablePartialFailure() {
       this.isPartialFailure = true;
-      return this;
-    }
-
-    /**
-     * Enable downloading of money values in reports in micros.
-     */
-    public Builder enableReportMoneyInMicros() {
-      this.isReportMoneyInMicros = true;
-      return this;
-    }
-    
-    /**
-     * Disable downloading of money values in reports in micros.
-     */
-    public Builder disableReportMoneyInMicros() {
-      this.isReportMoneyInMicros = false;
       return this;
     }
 

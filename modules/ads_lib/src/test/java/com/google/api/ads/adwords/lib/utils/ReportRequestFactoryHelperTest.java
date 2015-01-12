@@ -16,15 +16,13 @@ package com.google.api.ads.adwords.lib.utils;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.api.ads.adwords.lib.client.AdWordsSession;
+import com.google.api.ads.adwords.lib.client.reporting.ReportingConfiguration;
 import com.google.api.ads.adwords.lib.conf.AdWordsLibConfiguration;
 import com.google.api.ads.adwords.lib.utils.logging.AdWordsServiceLoggers;
 import com.google.api.ads.adwords.lib.utils.logging.ReportServiceLogger;
@@ -40,7 +38,6 @@ import com.google.api.client.http.HttpRequestFactory;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.http.LowLevelHttpRequest;
 
-import org.hamcrest.Matchers;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -53,8 +50,6 @@ import org.mockito.MockitoAnnotations;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-
-import javax.annotation.Nullable;
 
 /**
  * Tests functionality of the ReportRequestFactoryHelper.
@@ -70,8 +65,8 @@ public class ReportRequestFactoryHelperTest {
   /** Version of the AdWords API. */
   private String version;
 
-  /** Whether <code>version<code> is supposed to support returnMoneyInMicros. */
-  private boolean isSupportsReturnMoneyInMicros;
+  /** The reporting configuration to use for the test. */
+  private ReportingConfiguration reportingConfiguration;
 
   @Mock
   private AuthorizationHeaderProvider authorizationHeaderProvider;
@@ -93,9 +88,24 @@ public class ReportRequestFactoryHelperTest {
   @Parameters
   public static Collection<Object[]> data() {
     Collection<Object[]> parameters = new ArrayList<Object[]>();
-    parameters.add(new Object[] {"v201402", true});
-    parameters.add(new Object[] {"v201406", false});
-    parameters.add(new Object[] {null, true});
+    Boolean[] booleanValues = new Boolean[]{ true, false, null };
+    for (Boolean isSkipReportHeader : booleanValues) {
+      for (Boolean isSkipReportSummary : booleanValues) {
+        ReportingConfiguration reportingConfig = null;
+        if (isSkipReportHeader != null || isSkipReportSummary != null) {
+          reportingConfig = new ReportingConfiguration.Builder()
+              .skipReportHeader(isSkipReportHeader)
+              .skipReportSummary(isSkipReportSummary)
+              .build();
+        }
+        parameters.add(new Object[] {"v201406", null});
+        parameters.add(new Object[] {"v201406", reportingConfig});
+        parameters.add(new Object[] {"v201409", null});
+        parameters.add(new Object[] {"v201409", reportingConfig});
+        parameters.add(new Object[] {null, reportingConfig});
+      }
+    }
+
     return parameters;
   }
   
@@ -103,12 +113,11 @@ public class ReportRequestFactoryHelperTest {
    * Values for these arguments are supplied by the {@link #data()} method.
    *
    * @param version version of the AdWords API
-   * @param isSupportsReturnMoneyInMicros true if <code>version</code> is supposed to support
-   *        returnMoneyInMicros
    */
-  public ReportRequestFactoryHelperTest(String version, boolean isSupportsReturnMoneyInMicros) {
+  public ReportRequestFactoryHelperTest(String version,
+      ReportingConfiguration reportingConfiguration) {
     this.version = version;
-    this.isSupportsReturnMoneyInMicros = isSupportsReturnMoneyInMicros;
+    this.reportingConfiguration = reportingConfiguration;
   }
   
   @Before
@@ -135,33 +144,10 @@ public class ReportRequestFactoryHelperTest {
   }
 
   /**
-   * Tests the factory when money in micros is explicitly set to true. 
+   * Tests the factory builds the request properly for this test's attributes.
    */
   @Test
-  public void testGetHttpRequestFactory_moneyInMicrosEnabled() throws Exception {
-    testGetHttpRequestFactory(true);
-  }
-
-  /**
-   * Tests the factory when money in micros is explicitly set to false. 
-   */
-  @Test
-  public void testGetHttpRequestFactory_moneyInMicrosDisabled() throws Exception {
-    testGetHttpRequestFactory(false);
-  }
-  
-  /**
-   * Tests the factory when money in micros is explicitly set to null. 
-   */
-  @Test
-  public void testGetHttpRequestFactory_moneyInMicrosNull() throws Exception {
-    testGetHttpRequestFactory(null);
-  }
-  
-  /**
-   * Tests the factory builds the request properly for the given returnMoneyInMicros value.
-   */
-  private void testGetHttpRequestFactory(@Nullable Boolean returnMoneyInMicros)
+  public void testGetHttpRequestFactory()
       throws ValidationException, AuthenticationException, IOException {
     LowLevelHttpRequest lowLevelRequest = Mockito.mock(LowLevelHttpRequest.class);
     HttpTransport transport = createTransport(lowLevelRequest);
@@ -172,32 +158,14 @@ public class ReportRequestFactoryHelperTest {
         .withClientCustomerId("fooclientcustomerid")
         .withOAuth2Credential(credential)
         .withUserAgent("userAgent")
+        .withReportingConfiguration(reportingConfiguration)
         .build();
-    session.setReportMoneyInMicros(returnMoneyInMicros);
     when(authorizationHeaderProvider.getAuthorizationHeader(session, ENDPOINT_URL.build()))
         .thenReturn("fooauthheader");
     when(userAgentCombiner.getUserAgent(anyString())).thenReturn("foouseragent");
     ReportRequestFactoryHelper helper = new ReportRequestFactoryHelper(session, internals);
-    HttpRequestFactory requestFactory;
-    try {
-      requestFactory = helper.getHttpRequestFactory(ENDPOINT_URL.build(), version);
-    } catch (IllegalArgumentException e) {
-      // This exception should only occur if returnMoneyInMicros was specified and
-      // !isSupportsReturnMoneyInMicros.
-      assertNotNull("IllegalArgumentException thrown but returnMoneyInMicros was null so "
-          + "validation of returnMoneyInMicros should have been skipped", returnMoneyInMicros);
-      if (isSupportsReturnMoneyInMicros) {
-        fail(String.format(
-            "returnMoneyInMicros validation failed but version %s supports returnMoneyInMicros: %s",
-            version, e));
-      }
-      // The version does not support returnMoneyInMicros - check that the exception message
-      // mentions returnMoneyInMicros to ensure that the IllegalArgumentException was not thrown
-      // for a different reason than expected.
-      assertThat("Should have failed because returnMoneyInMicros is not supported, but failed for "
-          + "a different reason", e.getMessage(), Matchers.containsString("returnMoneyInMicros"));
-      return;
-    }
+    HttpRequestFactory requestFactory = helper.getHttpRequestFactory(ENDPOINT_URL.build(), version);
+
     HttpRequest request = requestFactory.buildPostRequest(
         ENDPOINT_URL, new AwqlReportBodyProvider("select 1", "csv").getHttpContent());
     assertEquals(42, request.getConnectTimeout());
@@ -206,14 +174,27 @@ public class ReportRequestFactoryHelperTest {
     assertEquals("foodevtoken", headers.get("developerToken"));
     assertEquals("fooauthheader", headers.getAuthorization());
     assertEquals("fooclientcustomerid", headers.get("clientCustomerId"));
-    if (returnMoneyInMicros == null) {
-      assertFalse("returnMoneyInMicros should not be in the header if not explicitly set",
-          headers.containsKey("returnMoneyInMicros"));
-    } else {
-      assertEquals("returnMoneyInMicros header is incorrect", returnMoneyInMicros.toString(),
-          headers.get("returnMoneyInMicros"));
-    }
     assertTrue((headers.getUserAgent()).contains("foouseragent"));
+    
+    if (reportingConfiguration == null) {
+      assertFalse("skipReportHeader should not be in the header if no reporting config is set",
+          headers.containsKey("skipReportHeader"));
+      assertFalse("skipReportSummary should not be in the header if no reporting config is set",
+          headers.containsKey("skipReportSummary"));
+    } else {
+      String expectedSkipHeaderHeader =
+          reportingConfiguration.isSkipReportHeader() != null
+              ? Boolean.toString(reportingConfiguration.isSkipReportHeader())
+              : null;
+      String expectedSkipSummaryHeader =
+          reportingConfiguration.isSkipReportSummary() != null
+              ? Boolean.toString(reportingConfiguration.isSkipReportSummary())
+              : null;
+      assertEquals("skipReportHeader not equal to the reporting config setting",
+          expectedSkipHeaderHeader, headers.get("skipReportHeader"));
+      assertEquals("skipReportSummary not equal to the reporting config setting",
+          expectedSkipSummaryHeader, headers.get("skipReportSummary"));
+    }
   }
 
   private HttpTransport createTransport(final LowLevelHttpRequest request) {

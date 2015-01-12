@@ -2020,6 +2020,14 @@ public class ObjectFactory {
     }
 
     /**
+     * Create an instance of {@link CrossSellError }
+     * 
+     */
+    public CrossSellError createCrossSellError() {
+        return new CrossSellError();
+    }
+
+    /**
      * Create an instance of {@link DeactivatePlacements }
      * 
      */
@@ -2537,6 +2545,14 @@ public class ObjectFactory {
      */
     public TechnologyTargeting createTechnologyTargeting() {
         return new TechnologyTargeting();
+    }
+
+    /**
+     * Create an instance of {@link CollectionSizeError }
+     * 
+     */
+    public CollectionSizeError createCollectionSizeError() {
+        return new CollectionSizeError();
     }
 
     /**
